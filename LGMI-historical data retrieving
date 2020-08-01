@@ -1,0 +1,96 @@
+# -*- coding:utf-8 -*-
+
+'''
+---Peggy.H---
+This file is for retrieving all the number of inventories under the category of "inventory of metallurgical product (冶金产品库存)" released by LGMI.
+***Source page: https://datawindow.lgmi.com/#Data
+***Data are published in each Friday, except for public holiday in China.
+Input: 1) (Optional) In "inv_dict", put the interested inventories, and the corresponding id.
+       2) (Optional) start_date and end_date; format: yyyy-mm-dd; by default, all data in available reference period are captured.
+Output: Excel files and figures with the number of inventories and the corresponding Chinese names.
+'''
+
+import requests
+import urllib.request
+import urllib.parse
+import urllib
+import pandas as pd
+import matplotlib.pyplot as plt
+import re
+import os
+import json
+
+# #output file saving
+path = os.path.split(os.path.realpath("lgmi_data"))[0].replace("\\","/")
+
+
+
+
+#-------------------------------------------------------------------------------------------------
+#multipile input titles
+def lgmi_inv(name_inv, id_inv, start_date, end_date):
+    search_value = {
+        'Riqi': '年月日',
+        'Title': name_inv,
+        'Ktime': start_date,
+        'Jtime': end_date,
+        'Tuli': id_inv
+    }
+
+    search_url = 'https://datawindow.lgmi.com/index.ashx?type=GetY'
+    resp = requests.get(search_url)
+    resp.encoding = 'utf-8'
+    # print(resp.text)
+
+    input_data = urllib.parse.urlencode(search_value)
+    req_data = urllib.request.Request(search_url, input_data.encode('utf-8'))
+    response_data = urllib.request.urlopen(req_data, timeout=60)
+    page_data = response_data.read().decode('utf-8')
+    # print(page_data)
+
+    page_data_dict = json.loads(page_data[1:-1])
+    # print(the_pate_dict)
+    name = page_data_dict["name"]
+    data = page_data_dict["data"]
+    # print(name, data)
+
+    search_url_date = 'https://datawindow.lgmi.com/index.ashx?type=GetX'
+    resp_date = requests.get(search_url_date)
+    resp_date.encoding = 'utf-8'
+    # print(resp_date.text)
+    req_date = urllib.request.Request(search_url_date, input_data.encode('utf-8'))
+    response_date = urllib.request.urlopen(req_date, timeout=60)
+    page_date = response_date.read().decode('utf-8')
+    # print(page_date)
+    date_list = page_date.split(',')
+
+    return pd.DataFrame(data, index=date_list, columns=[name])
+
+
+inv_dict = {'钢材社会库存': 0,
+            '建材社会库存': 1,
+            '板材社会库存': 12,
+            '线材社会库存': 2,
+            '螺纹钢社会库存': 5,
+            '热轧卷板社会库存': 13,
+            '冷轧卷板社会库存': 16,
+            '中厚板社会库存': 19,
+            '重点钢企钢材库存（旬报）': '',
+            '唐山钢坯库存': '',
+            '唐山型材钢厂库存': '',
+            '铁矿石港口库存量': '',
+}
+start_date = '2000-01-01'
+end_date = ''
+
+for i in inv_dict:
+    # print(inv_dict[i])
+    df_i = lgmi_inv(i, inv_dict[i], start_date, end_date)
+    plt.rcParams['font.sans-serif'] = ['KaiTi']
+    plt.rcParams['font.serif'] = ['KaiTi']
+    df_i.plot()
+    plt.tight_layout()
+    plt.savefig(path+'/'+i+'.png')
+    plt.show()
+    df_i.to_excel(path+'/'+i+'.xlsx')
+    print(df_i)
